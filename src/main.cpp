@@ -1,49 +1,34 @@
-#include <memory>
-#include <thread>
-#include <cstdio>
-
 #include <Windows.h>
-#include <winuser.h>
-
 #include "JNI/JNI.h"
-#include "Hooks/Hooks.h"
+#include "Java.h"
+#include "cheat/Cheat.h"
 
-void MainThread(HMODULE module)
+void initialize()
 {
-    p_jni = std::make_unique<JNI>(); 
-    p_hooks = std::make_unique<Hooks>();
+    jsize count;
 
-    while (!GetAsyncKeyState(VK_END))
-    {
-        if (GetAsyncKeyState(VK_XBUTTON1)) {
-            p_jni->p_crobot->mousePress(16);
-            p_jni->p_crobot->mouseRelease(16);
-            p_jni->p_crobot->delay(200 + (rand() % 20));
-        } 
-    }
+    if (JNI_GetCreatedJavaVMs(&ct.vm, 1, &count) != JNI_OK || count == 0)
+        return;
 
-    FreeLibrary(module);
+    jint rest = ct.vm->GetEnv((void**)&ct.env, JNI_VERSION_1_6);
+
+    if (rest == JNI_EDETACHED)
+        rest = ct.vm->AttachCurrentThread((void**)&ct.env, nullptr);
+
+    if (ct.env != nullptr)
+        runModules();
 }
 
-bool __stdcall DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved)
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
 {
-    static FILE* p_file{ nullptr };
-    static std::thread main_thread;
-
-    if (reason == DLL_PROCESS_ATTACH)
-    {
-        AllocConsole();
-        freopen_s(&p_file, "CONOUT$", "w", stdout);
-
-        main_thread = std::thread([instance] { MainThread(instance); });
-        if (main_thread.joinable())
-            main_thread.detach();
-    }
-    else if (reason == DLL_PROCESS_DETACH)
-    {
-        fclose(p_file);
-        FreeConsole();
-    }
-
-    return true;
+	switch (ul_reason_for_call)
+	{
+	case DLL_PROCESS_ATTACH:
+        CreateThread(0, 0, (LPTHREAD_START_ROUTINE)initialize, 0, 0, 0);
+	case DLL_PROCESS_DETACH:
+	case DLL_THREAD_ATTACH:
+	case DLL_THREAD_DETACH:
+		break;
+	}
+	return TRUE;
 }
