@@ -1,10 +1,14 @@
 #include <Windows.h>
-#include "JNI/JNI.h"
+#include <consoleapi.h>
+#include <libloaderapi.h>
+#include <thread>
+#include <winuser.h>
+
 #include "Java.h"
 #include "cheat/Cheat.h"
 
-void initialize()
-{
+void initialize(HMODULE module)
+{  
     jsize count;
 
     if (JNI_GetCreatedJavaVMs(&ct.vm, 1, &count) != JNI_OK || count == 0)
@@ -16,18 +20,34 @@ void initialize()
         rest = ct.vm->AttachCurrentThread((void**)&ct.env, nullptr);
 
     if (ct.env != nullptr)
-        runModules();
+        while (!GetAsyncKeyState(VK_END))
+            runModules();
+    
+    ct.vm->DetachCurrentThread();
+    FreeLibrary(module);
 }
 
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
+BOOL APIENTRY DllMain(HINSTANCE hInstance, DWORD  ul_reason_for_call, LPVOID lpReserved)
 {
-	switch (ul_reason_for_call)
+    static std::thread main_thread;
+    static FILE* p_file;
+
+    switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
-        CreateThread(0, 0, (LPTHREAD_START_ROUTINE)initialize, 0, 0, 0);
-	case DLL_PROCESS_DETACH:
+        AllocConsole();
+        freopen_s(&p_file, "CONOUT$", "w", stdout);
+        
+        printf("[-] NPvP injected.");
+        
+        main_thread = std::thread([hInstance] { initialize(hInstance); });
+	    if (main_thread.joinable())
+            main_thread.detach();
+    case DLL_PROCESS_DETACH:
 	case DLL_THREAD_ATTACH:
 	case DLL_THREAD_DETACH:
+        fclose(p_file);
+        FreeConsole();
 		break;
 	}
 	return TRUE;

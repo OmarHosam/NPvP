@@ -11,6 +11,8 @@ cmake_minimum_required(VERSION 3.12)
 # Debug stripping.
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /DEBUG:NONE")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
+# set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /FORCE:MULTIPLE")
+# add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:FORCE:MULTIPLE>")
 
 # Set up project.
 project(NPvP)
@@ -40,6 +42,8 @@ file(GLOB_RECURSE C_SOURCES "src/*.c")
 add_library(NPvP SHARED ${CPP_SOURCES} ${C_SOURCES}
         src/main.cpp
 )
+
+target_link_options(NPvP PRIVATE "$<$<CXX_COMPILER_ID:MSVC>:/FORCE:MULTIPLE>")
 
 # Add `JNI` and `ws2_32` and `minhook`.
 target_link_libraries(NPvP PRIVATE ${JNI_LIBRARIES} ws2_32)
