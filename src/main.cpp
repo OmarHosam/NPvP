@@ -1,13 +1,14 @@
 #include <Windows.h>
 #include <consoleapi.h>
 #include <libloaderapi.h>
-#include <thread>
+#include <minwinbase.h>
+#include <processthreadsapi.h>
 #include <winuser.h>
 
 #include "Java.h"
 #include "cheat/Cheat.h"
 
-void initialize(HMODULE module)
+void initialize(void* instance)
 {  
     jsize count;
 
@@ -19,36 +20,34 @@ void initialize(HMODULE module)
     if (rest == JNI_EDETACHED)
         rest = ct.vm->AttachCurrentThread((void**)&ct.env, nullptr);
 
-    if (ct.env != nullptr)
-        while (!GetAsyncKeyState(VK_END))
-            runModules();
+    AllocConsole();
+
+    FILE* f;
+    freopen_s(&f, "CONOUT$", "w", stdout);
     
+    printf("[-] NPvP injected.\n");
+
+    if (ct.env != nullptr)
+        runModules();
+    
+    fclose(f);
+    FreeConsole();
+
     ct.vm->DetachCurrentThread();
-    FreeLibrary(module);
+
+    FreeLibraryAndExitThread(static_cast<HMODULE>(instance), 0);
 }
 
-BOOL APIENTRY DllMain(HINSTANCE hInstance, DWORD  ul_reason_for_call, LPVOID lpReserved)
+BOOL APIENTRY DllMain(HMODULE module, DWORD  ul_reason_for_call, LPVOID lpReserved)
 {
-    static std::thread main_thread;
-    static FILE* p_file;
-
+    DisableThreadLibraryCalls(module);
     switch (ul_reason_for_call)
 	{
-	case DLL_PROCESS_ATTACH:
-        AllocConsole();
-        freopen_s(&p_file, "CONOUT$", "w", stdout);
-        
-        printf("[-] NPvP injected.");
-        
-        main_thread = std::thread([hInstance] { initialize(hInstance); });
-	    if (main_thread.joinable())
-            main_thread.detach();
-    case DLL_PROCESS_DETACH:
-	case DLL_THREAD_ATTACH:
-	case DLL_THREAD_DETACH:
-        fclose(p_file);
-        FreeConsole();
-		break;
+    case DLL_PROCESS_ATTACH:
+        CreateThread(nullptr, 0, (LPTHREAD_START_ROUTINE)initialize, module, 0, nullptr);
+	case DLL_THREAD_DETACH:  
+        //FreeLibrary(module);
+        break;
 	}
 	return TRUE;
 }
